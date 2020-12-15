@@ -1,0 +1,30 @@
+{
+    "env": {
+        "MESSAGE":" MAC AND LINUX USERS!!!- change path from c:/... to ~/esp/... or as approirate for your enviroment",
+        "IDF_TOOLS": "~/esp8266/xtensa-lx106-elf",
+        "IDF_PATH": "~/esp8266/ESP8266_RTOS_SDK"
+    },
+    "configurations": [
+        {
+            "name": "esp8266",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}",
+                    "${IDF_PATH}",
+                    "${IDF_TOOLS}"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            },
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${IDF_TOOLS}/**",
+                "${IDF_PATH}/**"
+            ],
+            "defines": [],
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "clang-x64"
+        }
+    ],
+    "version": 4
+}
