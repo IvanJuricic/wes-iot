@@ -1,8 +1,7 @@
 {
     "env": {
-        "MESSAGE":" MAC AND LINUX USERS!!!- change path from c:/... to ~/esp/... or as approirate for your enviroment",
-        "IDF_TOOLS": "~/esp8266/xtensa-lx106-elf",
-        "IDF_PATH": "~/esp8266/ESP8266_RTOS_SDK"
+        "IDF_TOOLS": "~/esp/xtensa-lx106-elf",
+        "IDF_PATH": "~/esp/ESP8266_RTOS_SDK"
     },
     "configurations": [
         {

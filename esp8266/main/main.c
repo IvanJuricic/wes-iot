@@ -21,29 +21,18 @@
 #include "esp_spi_flash.h"
 #include "esp_heap_caps.h"
 
-//******************************//
-
 #include "lwip/err.h"
 #include "lwip/sys.h"
 #include "event_groups.h"
 
-//******************************//
+#include "driver/gpio.h"
 
-#define ESP_WIFI_SSID(a)    {'S', 'T', 'M', '-', 'W', '_', (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5], (a)[6], (a)[7], '\0'} 
-#define ESP_WIFI_PASS      "12345678"
-#define MAX_STA_CONN       1
-#define PORT CONFIG_EXAMPLE_PORT
+#define PORT 3000
 #define EX_UART_NUM UART_NUM_0
 #define BUF_SIZE (1024)
 #define RD_BUF_SIZE (BUF_SIZE)
 
-//**************************************//
 
-/* The examples use WiFi configuration that you can set via project configuration menu
-
-   If you'd rather not, just change the below entries to strings with
-   the config you want - ie #define EXAMPLE_WIFI_SSID "mywifissid"
-*/
 #define EXAMPLE_ESP_WIFI_SSID      "Ivan"
 #define EXAMPLE_ESP_WIFI_PASS      "ivanivan"
 #define EXAMPLE_ESP_MAXIMUM_RETRY  5
@@ -54,14 +43,9 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
 
-//********************************//
-
 static QueueHandle_t uart0_queue;
-static void udp_send(uint8_t *udp_tx);
+static void udp_send(struct sockaddr_in destAddr, uint8_t *udp_tx);
 
-static char esp_mac[34];
-static char esp_mac_dec[35];
-static uint8_t mac_id[6];
 
 static char sta_ip[38] = "empty";
 
@@ -70,36 +54,6 @@ static const char *TAG = "wifi station";
 static int s_retry_num = 0;
 
 
-static const char hextable[] = { 
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-    -1,-1, 0,1,2,3,4,5,6,7,8,9,-1,-1,-1,-1,-1,-1,-1,10,11,12,13,14,15,-1,
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-    -1,-1,10,11,12,13,14,15,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,
-    -1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1
-};
-
-int hexdec(unsigned char *hex) {
-   int ret = 0; 
-   while (*hex && ret >= 0) {
-      ret = (ret << 4) | hextable[*hex++];
-   }
-   return ret; 
-}
-
-//make decimal MAC for SSID
-void make_ssid(void)
-{
-    esp_efuse_mac_get_default(mac_id);
-    sprintf(esp_mac, "%02x%02x%02x%02x%02x%02x", mac_id[0],mac_id[1],mac_id[2],mac_id[3], mac_id[4],mac_id[5]);
-    unsigned char num[25] = {esp_mac[6], esp_mac[7], esp_mac[8], esp_mac[9], esp_mac[10], esp_mac[11]};
-    sprintf(esp_mac_dec, "%d", hexdec(num));
-}
 
 //get connected station's IP address
 void get_sta_ip() 
@@ -157,7 +111,7 @@ static void uart_event_task(void *pvParameters)
                     uart_read_bytes(EX_UART_NUM, dtmp, event.size, portMAX_DELAY);
                     //ESP_LOGI(TAG, "[DATA EVT]:");
                     //uart_write_bytes(EX_UART_NUM, (const char *) dtmp, event.size);
-                    udp_send(dtmp);
+                    //udp_send(dtmp);
                     break;
 
                 // Event of HW FIFO overflow detected
@@ -203,19 +157,19 @@ static void uart_event_task(void *pvParameters)
 
 
 //send data received on UART via UDP 
-static void udp_send(uint8_t *udp_tx)
+static void udp_send(struct sockaddr_in destAddr, uint8_t *udp_tx)
 {
-    get_sta_ip();
+/*     get_sta_ip();
 
     if (strcmp(sta_ip, "empty") == 0) printf("No stations connected.\n");
     else
-    {
+    { */
     char addr_str[128];
     int addr_family;
     int ip_protocol;
 
 
-    struct sockaddr_in destAddr;
+    //struct sockaddr_in destAddr;
     destAddr.sin_addr.s_addr = inet_addr(sta_ip);
     destAddr.sin_family = AF_INET;
     destAddr.sin_port = htons(PORT);
@@ -236,10 +190,10 @@ static void udp_send(uint8_t *udp_tx)
         ESP_LOGE(TAG, "Error occured during sending: errno %d", errno);
         //exit(0);
     }
-    //ESP_LOGI(TAG, "Message sent");
+    ESP_LOGI(TAG, "Message sent");
     shutdown(sock, 0);
     close(sock);
-    }
+    //}
 }
 
 
@@ -329,13 +283,8 @@ void wifi_init_sta(void)
 void app_main()
 {
     ESP_ERROR_CHECK(nvs_flash_init());
-    make_ssid(); //ne treba
-    wifi_init_sta(); //pretvori u station
+    wifi_init_sta();
     uart_init(); 
-/* 
-    char ssid[34] = ESP_WIFI_SSID(esp_mac_dec);
-    printf("\n\nMAC:%s \nSSID:%s \npassword:%s\n", esp_mac, ssid, ESP_WIFI_PASS); */
-
 
     xTaskCreate(uart_event_task, "uart_event_task", 2048, NULL, 12, NULL); //ne treba
     
@@ -343,6 +292,9 @@ void app_main()
     char addr_str[128];
     int addr_family;
     int ip_protocol;
+
+    gpio_set_direction(5, GPIO_MODE_OUTPUT);
+    gpio_set_level(5, 0);
 
     while (1) {
         
@@ -360,17 +312,17 @@ void app_main()
             ESP_LOGE(TAG, "Unable to create socket: errno %d", errno);
             break;
         }
-        //ESP_LOGI(TAG, "Socket created");
+        ESP_LOGI(TAG, "Socket created");
 
         int err = bind(sock, (struct sockaddr *)&destAddr, sizeof(destAddr));
         if (err < 0) {
             ESP_LOGE(TAG, "Socket unable to bind: errno %d", errno);
         }
-        //ESP_LOGI(TAG, "Socket binded");
+        ESP_LOGI(TAG, "Socket binded");
 
         while (1) {
 
-            //ESP_LOGI(TAG, "Waiting for data");
+            ESP_LOGI(TAG, "Waiting for data");
 
             struct sockaddr_in sourceAddr;
             socklen_t socklen = sizeof(sourceAddr);            
@@ -386,11 +338,20 @@ void app_main()
             else {
                 //printf("free heap: %d\n", heap_caps_get_free_size(MALLOC_CAP_8BIT));
                 rx_buffer[len_udp] = 0; // Null-terminate whatever we received and treat like a string...
-                //ESP_LOGI(TAG, "Received %d bytes from %s:", len, addr_str);
+                ESP_LOGI(TAG, "Received from %s:", addr_str);
                 //ESP_LOGI(TAG, "%s", rx_buffer);
-                uart_write_bytes(UART_NUM_0, (const char *) rx_buffer, strlen(rx_buffer));
+                //uart_write_bytes(UART_NUM_0, (const char *) rx_buffer, strlen(rx_buffer));
+                printf("%s", rx_buffer);
+                printf("%s", ip4addr_ntoa((const ip4_addr_t*)&(sourceAddr.sin_addr)));
 
                 //funkcija
+                if (strstr((const char *) rx_buffer, "SHOCK") != NULL)
+                {
+                    gpio_set_level(5, 1);
+                    vTaskDelay(2000 / portTICK_PERIOD_MS);
+                    gpio_set_level(5, 0);
+                    udp_send(sourceAddr, (unsigned char *)"UNSHOCKED");
+                } 
             } 
         }
 
