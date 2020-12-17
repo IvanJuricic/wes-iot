@@ -191,6 +191,14 @@ void app_main()
     gpio_set_direction(15, GPIO_MODE_OUTPUT);
     gpio_set_level(15, 0);
 
+    //heating system gpio
+    gpio_set_direction(14, GPIO_MODE_OUTPUT);
+    gpio_set_level(14, 0);
+
+    //cooling system gpio
+    gpio_set_direction(13, GPIO_MODE_OUTPUT);
+    gpio_set_level(13, 0);
+
     //bmp280 i2c
     ESP_ERROR_CHECK(i2cdev_init());
     bmp280_params_t params;
@@ -204,7 +212,7 @@ void app_main()
     float pressure, temperature, humidity;
 
     while (1) {
-        
+        //establish socket connection with server
         struct sockaddr_in destAddr;
         destAddr.sin_addr.s_addr = htonl(INADDR_ANY);
         destAddr.sin_family = AF_INET;
@@ -227,6 +235,10 @@ void app_main()
         }
         ESP_LOGI(TAG, "Socket binded");
 
+        int heating = 0;
+        int cooling = 0;
+
+        //waiting for UDP data from server
         while (1) {
 
             ESP_LOGI(TAG, "Waiting for data");
@@ -248,7 +260,7 @@ void app_main()
                 printf("%s", rx_buffer);
                 printf("%s\n", ip4addr_ntoa((const ip4_addr_t*)&(sourceAddr.sin_addr)));
 
-                /**********funkcija sustava************/
+                /**********act according to received data************/
 
                 //read bmp280 data
                 if (bmp280_read_float(&dev, &temperature, &pressure, &humidity) != ESP_OK) printf("Temperature/pressure reading failed\n");
@@ -264,10 +276,66 @@ void app_main()
                 //send & regulate temperature
                 if (strstr((const char *) rx_buffer, "TEMP") != NULL)
                 {
-                    printf("Temperature: %d C\n", (int)temperature - 3);
+                    //send temperature
+                    int temp = (int) temperature - 3; //calibrate bmp280 readings
+                    printf("Temperature: %d C\n", temp);
                     char temp_buff[15];
-                    sprintf(temp_buff, "%d", (int)temperature - 3);
+                    sprintf(temp_buff, "%d", temp);
                     udp_send(sourceAddr, (unsigned char *)temp_buff);
+
+                    //regulate temperature
+                    if (temp < 21)
+                    {
+                        if (cooling)
+                        {
+                            cooling = 0;
+                            gpio_set_level(13, 0);
+                            printf("Cooling system is turned off.\n");
+                            udp_send(sourceAddr, (unsigned char *)"Cooling system is turned off.");
+                        }
+                        if(!(heating))
+                        {
+                            heating = 1;
+                            gpio_set_level(14, 1);
+                            printf("Heating system is turned on.\n");
+                            udp_send(sourceAddr, (unsigned char *)"Heating system is turned on.");
+                        }
+                    }
+                    else if (temp > 26)
+                    {
+                        if (heating)
+                        {
+                            heating = 0;
+                            gpio_set_level(14, 0);
+                            printf("Heating system is turned off.\n");
+                            udp_send(sourceAddr, (unsigned char *)"Heating system is turned off.");
+                        }
+                        if(!(cooling))
+                        {
+                            cooling = 1;
+                            gpio_set_level(13, 1);
+                            printf("Cooling system is turned on.\n");
+                            udp_send(sourceAddr, (unsigned char *)"Cooling system is turned on.");
+                        }
+                    }
+                    else
+                    {
+                        //if temperature is between 21 and 26 C, turn off both heating and cooling
+                        if (heating)
+                        {
+                            heating = 0;
+                            gpio_set_level(14, 0);
+                            printf("Heating system is turned off.\n");
+                            udp_send(sourceAddr, (unsigned char *)"Heating system is turned off.");
+                        }
+                        if (cooling)
+                        {
+                            cooling = 0;
+                            gpio_set_level(13, 0);
+                            printf("Cooling system is turned off.\n");
+                            udp_send(sourceAddr, (unsigned char *)"Cooling system is turned off.");
+                        }
+                    }  
                 }
 
                 //send pressure
