@@ -9,32 +9,23 @@
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "esp_log.h"
+#include "nvs.h"
 #include "nvs_flash.h"
 #include "lwip/err.h"
 #include "lwip/sys.h"
 #include "lwip/sockets.h"
 #include <lwip/netdb.h>
-#include "driver/uart.h"
 #include <sys/param.h>
-#include "nvs.h"
-#include "nvs_flash.h"
-#include "esp_spi_flash.h"
-#include "esp_heap_caps.h"
-
-#include "lwip/err.h"
-#include "lwip/sys.h"
 #include "event_groups.h"
-
 #include "driver/gpio.h"
+#include "driver/uart.h"
 
 #define PORT 3000
 #define EX_UART_NUM UART_NUM_0
 #define BUF_SIZE (1024)
 #define RD_BUF_SIZE (BUF_SIZE)
-
-
-#define EXAMPLE_ESP_WIFI_SSID      "Ivan"
-#define EXAMPLE_ESP_WIFI_PASS      "ivanivan"
+#define EXAMPLE_ESP_WIFI_SSID      "darko2"
+#define EXAMPLE_ESP_WIFI_PASS      "darko123"
 #define EXAMPLE_ESP_MAXIMUM_RETRY  5
 
 /* FreeRTOS event group to signal when we are connected*/
@@ -44,38 +35,10 @@ static EventGroupHandle_t s_wifi_event_group;
 #define WIFI_FAIL_BIT      BIT1
 
 static QueueHandle_t uart0_queue;
-static void udp_send(struct sockaddr_in destAddr, uint8_t *udp_tx);
-
-
-static char sta_ip[38] = "empty";
 
 static const char *TAG = "wifi station";
 
 static int s_retry_num = 0;
-
-
-
-//get connected station's IP address
-void get_sta_ip() 
-{
-	wifi_sta_list_t wifi_sta_list;
-	tcpip_adapter_sta_list_t adapter_sta_list;
-   
-	memset(&wifi_sta_list, 0, sizeof(wifi_sta_list));
-	memset(&adapter_sta_list, 0, sizeof(adapter_sta_list));
-   
-	esp_wifi_ap_get_sta_list(&wifi_sta_list);	
-	tcpip_adapter_get_sta_list(&wifi_sta_list, &adapter_sta_list);
-	
-    if (adapter_sta_list.num != 1) sprintf(sta_ip, "empty");
-    else
-    {
-        tcpip_adapter_sta_info_t station = adapter_sta_list.sta[0];
-        sprintf(sta_ip, "%s", ip4addr_ntoa(&(station.ip)));
-    } 
-
-	//printf("sta_ip: %s\n", sta_ip);
-}
 
 //UART initialization
 static void uart_init()
@@ -91,90 +54,16 @@ static void uart_init()
     uart_driver_install(EX_UART_NUM, BUF_SIZE * 2, 0, 100, &uart0_queue, 0);
 }
 
-//UART interrupt handling
-static void uart_event_task(void *pvParameters)
-{
-    uart_event_t event;
-    uint8_t *dtmp = (uint8_t *) malloc(RD_BUF_SIZE);
-    for (;;) {
-        // Waiting for UART event.
-        if (xQueueReceive(uart0_queue, (void *)&event, (portTickType)portMAX_DELAY)) {
-            bzero(dtmp, RD_BUF_SIZE);
-            //ESP_LOGI(TAG, "uart[%d] event:", EX_UART_NUM);
-
-            switch (event.type) {
-                // Event of UART receving data
-                // We'd better handler data event fast, there would be much more data events than
-                // other types of events. If we take too much time on data event, the queue might be full.
-                case UART_DATA:
-                    //ESP_LOGI(TAG, "[UART DATA]: %d", event.size);
-                    uart_read_bytes(EX_UART_NUM, dtmp, event.size, portMAX_DELAY);
-                    //ESP_LOGI(TAG, "[DATA EVT]:");
-                    //uart_write_bytes(EX_UART_NUM, (const char *) dtmp, event.size);
-                    //udp_send(dtmp);
-                    break;
-
-                // Event of HW FIFO overflow detected
-                case UART_FIFO_OVF:
-                    ESP_LOGI(TAG, "hw fifo overflow");
-                    // If fifo overflow happened, you should consider adding flow control for your application.
-                    // The ISR has already reset the rx FIFO,
-                    // As an example, we directly flush the rx buffer here in order to read more data.
-                    uart_flush_input(EX_UART_NUM);
-                    xQueueReset(uart0_queue);
-                    break;
-
-                // Event of UART ring buffer full
-                case UART_BUFFER_FULL:
-                    ESP_LOGI(TAG, "ring buffer full");
-                    // If buffer full happened, you should consider encreasing your buffer size
-                    // As an example, we directly flush the rx buffer here in order to read more data.
-                    uart_flush_input(EX_UART_NUM);
-                    xQueueReset(uart0_queue);
-                    break;
-
-                case UART_PARITY_ERR:
-                    ESP_LOGI(TAG, "uart parity error");
-                    break;
-
-                // Event of UART frame error
-                case UART_FRAME_ERR:
-                    ESP_LOGI(TAG, "uart frame error");
-                    break;
-
-                // Others
-                default:
-                    ESP_LOGI(TAG, "uart event type: %d", event.type);
-                    break;
-            }
-        }
-    }
-
-    free(dtmp);
-    dtmp = NULL;
-    vTaskDelete(NULL);
-}
-
-
-//send data received on UART via UDP 
+//send data via UDP 
 static void udp_send(struct sockaddr_in destAddr, uint8_t *udp_tx)
 {
-/*     get_sta_ip();
 
-    if (strcmp(sta_ip, "empty") == 0) printf("No stations connected.\n");
-    else
-    { */
     char addr_str[128];
     int addr_family;
     int ip_protocol;
 
-
-    //struct sockaddr_in destAddr;
-    destAddr.sin_addr.s_addr = inet_addr(sta_ip);
-    destAddr.sin_family = AF_INET;
-    destAddr.sin_port = htons(PORT);
     addr_family = AF_INET;
-    ip_protocol = IPPROTO_IP;
+    ip_protocol = IPPROTO_IP; 
     inet_ntoa_r(destAddr.sin_addr, addr_str, sizeof(addr_str) - 1);
 
     int sock = socket(addr_family, SOCK_DGRAM, ip_protocol);
@@ -196,7 +85,7 @@ static void udp_send(struct sockaddr_in destAddr, uint8_t *udp_tx)
     //}
 }
 
-
+//wifi event(interrupt) handler
 static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
 {
@@ -220,6 +109,7 @@ static void event_handler(void* arg, esp_event_base_t event_base,
     }
 }
 
+//init wifi as station
 void wifi_init_sta(void)
 {
     s_wifi_event_group = xEventGroupCreate();
@@ -285,8 +175,6 @@ void app_main()
     ESP_ERROR_CHECK(nvs_flash_init());
     wifi_init_sta();
     uart_init(); 
-
-    xTaskCreate(uart_event_task, "uart_event_task", 2048, NULL, 12, NULL); //ne treba
     
     char rx_buffer[128];
     char addr_str[128];
@@ -336,13 +224,10 @@ void app_main()
 
             // Data received via UDP
             else {
-                //printf("free heap: %d\n", heap_caps_get_free_size(MALLOC_CAP_8BIT));
                 rx_buffer[len_udp] = 0; // Null-terminate whatever we received and treat like a string...
-                ESP_LOGI(TAG, "Received from %s:", addr_str);
-                //ESP_LOGI(TAG, "%s", rx_buffer);
                 //uart_write_bytes(UART_NUM_0, (const char *) rx_buffer, strlen(rx_buffer));
                 printf("%s", rx_buffer);
-                printf("%s", ip4addr_ntoa((const ip4_addr_t*)&(sourceAddr.sin_addr)));
+                printf("%s\n", ip4addr_ntoa((const ip4_addr_t*)&(sourceAddr.sin_addr)));
 
                 //funkcija
                 if (strstr((const char *) rx_buffer, "SHOCK") != NULL)
@@ -351,7 +236,9 @@ void app_main()
                     vTaskDelay(2000 / portTICK_PERIOD_MS);
                     gpio_set_level(5, 0);
                     udp_send(sourceAddr, (unsigned char *)"UNSHOCKED");
+                    
                 } 
+
             } 
         }
 
