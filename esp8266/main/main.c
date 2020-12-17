@@ -243,8 +243,8 @@ void app_main()
 
             // Data received via UDP
             else {
+                //print what we received on UDP
                 rx_buffer[len_udp] = 0; // Null-terminate whatever we received and treat like a string...
-                //uart_write_bytes(UART_NUM_0, (const char *) rx_buffer, strlen(rx_buffer));
                 printf("%s", rx_buffer);
                 printf("%s\n", ip4addr_ntoa((const ip4_addr_t*)&(sourceAddr.sin_addr)));
 
@@ -259,7 +259,6 @@ void app_main()
                     gpio_set_level(15, 1);
                     vTaskDelay(2000 / portTICK_PERIOD_MS);
                     gpio_set_level(15, 0);
-                    //udp_send(sourceAddr, (unsigned char *)"UNSHOCKED");
                 }
 
                 //send & regulate temperature

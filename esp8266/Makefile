@@ -4,7 +4,7 @@
 #
 
 PROJECT_NAME := WiFi_AP
-EXTRA_COMPONENT_DIRS := /home/kristian/esp-idf-lib/components
+EXTRA_COMPONENT_DIRS := $(HOME)/esp-idf-lib/components
 EXCLUDE_COMPONENTS := max7219 mcp23x17 led_strip
 include $(IDF_PATH)/make/project.mk
 
