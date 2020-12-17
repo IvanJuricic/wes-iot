@@ -17,7 +17,8 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${IDF_TOOLS}/**",
-                "${IDF_PATH}/**"
+                "${IDF_PATH}/**",
+                "~/esp-idf-lib/**"
             ],
             "defines": [],
             "cStandard": "c11",

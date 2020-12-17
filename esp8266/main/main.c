@@ -19,24 +19,29 @@
 #include "event_groups.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
+#include "bmp280.h"
 
+//udp port
 #define PORT 3000
+//uart0 defines
 #define EX_UART_NUM UART_NUM_0
 #define BUF_SIZE (1024)
 #define RD_BUF_SIZE (BUF_SIZE)
+//wifi
 #define EXAMPLE_ESP_WIFI_SSID      "darko2"
 #define EXAMPLE_ESP_WIFI_PASS      "darko123"
 #define EXAMPLE_ESP_MAXIMUM_RETRY  5
+#define WIFI_CONNECTED_BIT BIT0
+#define WIFI_FAIL_BIT      BIT1
+//bmp280 i2c
+#define SDA_GPIO 4 
+#define SCL_GPIO 5
 
 /* FreeRTOS event group to signal when we are connected*/
 static EventGroupHandle_t s_wifi_event_group;
-
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT      BIT1
+static const char *TAG = "wifi station";
 
 static QueueHandle_t uart0_queue;
-
-static const char *TAG = "wifi station";
 
 static int s_retry_num = 0;
 
@@ -176,13 +181,27 @@ void app_main()
     wifi_init_sta();
     uart_init(); 
     
+    //udp
     char rx_buffer[128];
     char addr_str[128];
     int addr_family;
     int ip_protocol;
 
-    gpio_set_direction(5, GPIO_MODE_OUTPUT);
-    gpio_set_level(5, 0);
+    //speaker/alarm gpio
+    gpio_set_direction(15, GPIO_MODE_OUTPUT);
+    gpio_set_level(15, 0);
+
+    //bmp280 i2c
+    ESP_ERROR_CHECK(i2cdev_init());
+    bmp280_params_t params;
+    bmp280_init_default_params(&params);
+    bmp280_t dev;
+    memset(&dev, 0, sizeof(bmp280_t));
+    ESP_ERROR_CHECK(bmp280_init_desc(&dev, BMP280_I2C_ADDRESS_0, 0, SDA_GPIO, SCL_GPIO));
+    ESP_ERROR_CHECK(bmp280_init(&dev, &params));
+    bool bme280p = dev.id == BME280_CHIP_ID;
+    printf("BMP280: found %s\n", bme280p ? "BME280" : "BMP280");
+    float pressure, temperature, humidity;
 
     while (1) {
         
@@ -229,15 +248,37 @@ void app_main()
                 printf("%s", rx_buffer);
                 printf("%s\n", ip4addr_ntoa((const ip4_addr_t*)&(sourceAddr.sin_addr)));
 
-                //funkcija
+                /**********funkcija sustava************/
+
+                //read bmp280 data
+                if (bmp280_read_float(&dev, &temperature, &pressure, &humidity) != ESP_OK) printf("Temperature/pressure reading failed\n");
+
+                //turn on and off alarm
                 if (strstr((const char *) rx_buffer, "SHOCK") != NULL)
                 {
-                    gpio_set_level(5, 1);
+                    gpio_set_level(15, 1);
                     vTaskDelay(2000 / portTICK_PERIOD_MS);
-                    gpio_set_level(5, 0);
-                    udp_send(sourceAddr, (unsigned char *)"UNSHOCKED");
-                    
-                } 
+                    gpio_set_level(15, 0);
+                    //udp_send(sourceAddr, (unsigned char *)"UNSHOCKED");
+                }
+
+                //send & regulate temperature
+                if (strstr((const char *) rx_buffer, "TEMP") != NULL)
+                {
+                    printf("Temperature: %d C\n", (int)temperature - 3);
+                    char temp_buff[15];
+                    sprintf(temp_buff, "%d", (int)temperature - 3);
+                    udp_send(sourceAddr, (unsigned char *)temp_buff);
+                }
+
+                //send pressure
+                if (strstr((const char *) rx_buffer, "PRESSURE") != NULL)
+                {
+                    printf("Pressure: %d Pa\n", (int)pressure);
+                    char press_buff[15];
+                    sprintf(press_buff, "%d", (int)pressure);
+                    udp_send(sourceAddr, (unsigned char *)press_buff);
+                }
 
             } 
         }
