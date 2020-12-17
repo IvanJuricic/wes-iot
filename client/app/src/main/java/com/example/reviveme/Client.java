@@ -102,7 +102,8 @@ public class Client implements Runnable {
             @Override
             public void run() {
                 while (true) {
-                    String message = receive();
+                    final String message = receive();
+                    Log.d(TAG, message);
                     if (message.contains("Shock completed!")) {
                         context.runOnUiThread(new Runnable() {
                             @Override
@@ -111,13 +112,28 @@ public class Client implements Runnable {
                                 context.animation.playAnimation();
                             }
                         });
-                    } else if(message.contains("UNSHOCKED")) {
+                    } else if(message.contains("T:")){
                         context.runOnUiThread(new Runnable() {
                             @Override
                             public void run() {
-                                context.animation.setSpeed(-1);
-                                context.animation.playAnimation();
-                                context.shockBtn.setEnabled(true);
+                                String temp = message.split(":")[1];
+                                context.tempData.setText(temp + "°C");
+                            }
+                        });
+                    } else if(message.contains("P:")){
+                        context.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                String pres = message.split(":")[1];
+                                context.presData.setText(pres + "hPa");
+                            }
+                        });
+                    } else if(message.contains("H:")){
+                        context.runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                String hum = message.split(":")[1];
+                                context.humData.setText(hum);
                             }
                         });
                     }

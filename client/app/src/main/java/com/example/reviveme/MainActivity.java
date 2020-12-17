@@ -9,6 +9,7 @@ import android.os.Message;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.airbnb.lottie.LottieAnimationView;
@@ -21,6 +22,7 @@ public class MainActivity extends AppCompatActivity{
 
     LottieAnimationView animation;
     Button shockBtn;
+    TextView humData, tempData, presData;
 
     private Client client;
 
@@ -39,8 +41,11 @@ public class MainActivity extends AppCompatActivity{
         mContext = MainActivity.this;
 
         shockBtn = findViewById(R.id.shock_button);
-
         animation = (LottieAnimationView)findViewById(R.id.animationView);
+
+        tempData = findViewById(R.id.temperatureData);
+        humData = findViewById(R.id.humidityData);
+        presData = findViewById(R.id.pressureData);
 
         Thread t = null;
         try {
@@ -58,10 +63,6 @@ public class MainActivity extends AppCompatActivity{
 
         send(message);
 
-        shockBtn.setEnabled(false);
-
-
-
         //animation.playAnimation();
 
     }
@@ -71,4 +72,22 @@ public class MainActivity extends AppCompatActivity{
     }
 
 
+    public void humidity(View view) {
+
+        String message = "HUMIDITY!";
+
+        send(message);
+    }
+
+    public void temperature(View view) {
+
+        String message = "TEMPERATURE!";
+        send(message);
+    }
+
+    public void pressure(View view) {
+
+        String message = "PRESSURE!";
+        send(message);
+    }
 }
