@@ -1,7 +1,7 @@
 {
     "env": {
-        "IDF_TOOLS": "~/esp/xtensa-lx106-elf",
-        "IDF_PATH": "~/esp/ESP8266_RTOS_SDK"
+        "IDF_TOOLS": "~/esp8266/xtensa-lx106-elf",
+        "IDF_PATH": "~/esp8266/ESP8266_RTOS_SDK"
     },
     "configurations": [
         {
@@ -18,7 +18,7 @@
                 "${workspaceFolder}/**",
                 "${IDF_TOOLS}/**",
                 "${IDF_PATH}/**",
-                "~/esp-idf-lib/**"
+                "/home/silvio/esp-idf-lib/**"
             ],
             "defines": [],
             "cStandard": "c11",

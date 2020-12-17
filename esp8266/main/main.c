@@ -19,7 +19,9 @@
 #include "event_groups.h"
 #include "driver/gpio.h"
 #include "driver/uart.h"
+
 #include "bmp280.h"
+#include "dht.h"
 
 //udp port
 #define PORT 3000
@@ -28,8 +30,8 @@
 #define BUF_SIZE (1024)
 #define RD_BUF_SIZE (BUF_SIZE)
 //wifi
-#define EXAMPLE_ESP_WIFI_SSID      "darko2"
-#define EXAMPLE_ESP_WIFI_PASS      "darko123"
+#define EXAMPLE_ESP_WIFI_SSID      "AndroidAP"
+#define EXAMPLE_ESP_WIFI_PASS      "123456789"
 #define EXAMPLE_ESP_MAXIMUM_RETRY  5
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
@@ -211,6 +213,13 @@ void app_main()
     printf("BMP280: found %s\n", bme280p ? "BME280" : "BMP280");
     float pressure, temperature, humidity;
 
+
+    //DHT
+    static const dht_sensor_type_t sensor_type = DHT_TYPE_DHT11;
+    static const gpio_num_t dht_gpio = 2;
+    int16_t humidity11 = 0;
+    int16_t temperature11 = 0;
+
     while (1) {
         //establish socket connection with server
         struct sockaddr_in destAddr;
@@ -335,7 +344,19 @@ void app_main()
                             printf("Cooling system is turned off.\n");
                             udp_send(sourceAddr, (unsigned char *)"Cooling system is turned off.");
                         }
-                    }  
+                    }
+                }
+
+                if (strstr((const char *) rx_buffer, "HUMIDITY") != NULL)
+                {
+                    if (dht_read_data(sensor_type, dht_gpio, &humidity11, &temperature11) == ESP_OK)
+                        printf("Humidity11: %d\n", humidity11 / 10);
+                    else
+                        printf("Could not read data from sensor\n");
+
+                    char hum_buff[15];
+                    sprintf(hum_buff, "%d %%", (int)humidity11 / 10);
+                    udp_send(sourceAddr, (unsigned char *)hum_buff);
                 }
 
                 //send pressure
@@ -346,7 +367,6 @@ void app_main()
                     sprintf(press_buff, "%d", (int)pressure);
                     udp_send(sourceAddr, (unsigned char *)press_buff);
                 }
-
             } 
         }
 
