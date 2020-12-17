@@ -30,8 +30,8 @@
 #define BUF_SIZE (1024)
 #define RD_BUF_SIZE (BUF_SIZE)
 //wifi
-#define EXAMPLE_ESP_WIFI_SSID      "AndroidAP"
-#define EXAMPLE_ESP_WIFI_PASS      "123456789"
+#define EXAMPLE_ESP_WIFI_SSID      "Ivan"
+#define EXAMPLE_ESP_WIFI_PASS      "ivanivan"
 #define EXAMPLE_ESP_MAXIMUM_RETRY  5
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
@@ -190,16 +190,16 @@ void app_main()
     int ip_protocol;
 
     //speaker/alarm gpio
-    gpio_set_direction(15, GPIO_MODE_OUTPUT);
-    gpio_set_level(15, 0);
+    gpio_set_direction(16, GPIO_MODE_OUTPUT);
+    gpio_set_level(16, 0);
 
     //heating system gpio
     gpio_set_direction(14, GPIO_MODE_OUTPUT);
     gpio_set_level(14, 0);
 
     //cooling system gpio
-    gpio_set_direction(13, GPIO_MODE_OUTPUT);
-    gpio_set_level(13, 0);
+    gpio_set_direction(12, GPIO_MODE_OUTPUT);
+    gpio_set_level(12, 1);
 
     //bmp280 i2c
     ESP_ERROR_CHECK(i2cdev_init());
@@ -219,6 +219,7 @@ void app_main()
     static const gpio_num_t dht_gpio = 2;
     int16_t humidity11 = 0;
     int16_t temperature11 = 0;
+
 
     while (1) {
         //establish socket connection with server
@@ -277,9 +278,10 @@ void app_main()
                 //turn on and off alarm
                 if (strstr((const char *) rx_buffer, "SHOCK") != NULL)
                 {
-                    gpio_set_level(15, 1);
+                    gpio_set_level(16, 1);
+                    //printf("ZASTO NE RADIS?\n");
                     vTaskDelay(2000 / portTICK_PERIOD_MS);
-                    gpio_set_level(15, 0);
+                    gpio_set_level(16, 0);
                 }
 
                 //send & regulate temperature
@@ -289,7 +291,7 @@ void app_main()
                     int temp = (int) temperature - 3; //calibrate bmp280 readings
                     printf("Temperature: %d C\n", temp);
                     char temp_buff[15];
-                    sprintf(temp_buff, "%d", temp);
+                    sprintf(temp_buff, "T:%d", temp);
                     udp_send(sourceAddr, (unsigned char *)temp_buff);
 
                     //regulate temperature
@@ -298,16 +300,16 @@ void app_main()
                         if (cooling)
                         {
                             cooling = 0;
-                            gpio_set_level(13, 0);
+                            gpio_set_level(12, 0);
                             printf("Cooling system is turned off.\n");
-                            udp_send(sourceAddr, (unsigned char *)"Cooling system is turned off.");
+                            //udp_send(sourceAddr, (unsigned char *)"Cooling system is turned off.");
                         }
                         if(!(heating))
                         {
                             heating = 1;
                             gpio_set_level(14, 1);
                             printf("Heating system is turned on.\n");
-                            udp_send(sourceAddr, (unsigned char *)"Heating system is turned on.");
+                            //udp_send(sourceAddr, (unsigned char *)"Heating system is turned on.");
                         }
                     }
                     else if (temp > 26)
@@ -317,14 +319,14 @@ void app_main()
                             heating = 0;
                             gpio_set_level(14, 0);
                             printf("Heating system is turned off.\n");
-                            udp_send(sourceAddr, (unsigned char *)"Heating system is turned off.");
+                            //udp_send(sourceAddr, (unsigned char *)"Heating system is turned off.");
                         }
                         if(!(cooling))
                         {
                             cooling = 1;
-                            gpio_set_level(13, 1);
+                            gpio_set_level(12, 1);
                             printf("Cooling system is turned on.\n");
-                            udp_send(sourceAddr, (unsigned char *)"Cooling system is turned on.");
+                            //udp_send(sourceAddr, (unsigned char *)"Cooling system is turned on.");
                         }
                     }
                     else
@@ -335,14 +337,14 @@ void app_main()
                             heating = 0;
                             gpio_set_level(14, 0);
                             printf("Heating system is turned off.\n");
-                            udp_send(sourceAddr, (unsigned char *)"Heating system is turned off.");
+                            //udp_send(sourceAddr, (unsigned char *)"Heating system is turned off.");
                         }
                         if (cooling)
                         {
                             cooling = 0;
-                            gpio_set_level(13, 0);
+                            gpio_set_level(12, 0);
                             printf("Cooling system is turned off.\n");
-                            udp_send(sourceAddr, (unsigned char *)"Cooling system is turned off.");
+                            //udp_send(sourceAddr, (unsigned char *)"Cooling system is turned off.");
                         }
                     }
                 }
@@ -355,16 +357,16 @@ void app_main()
                         printf("Could not read data from sensor\n");
 
                     char hum_buff[15];
-                    sprintf(hum_buff, "%d %%", (int)humidity11 / 10);
+                    sprintf(hum_buff, "H:%d %%", (int)humidity11 / 10);
                     udp_send(sourceAddr, (unsigned char *)hum_buff);
                 }
 
                 //send pressure
                 if (strstr((const char *) rx_buffer, "PRESSURE") != NULL)
                 {
-                    printf("Pressure: %d Pa\n", (int)pressure);
+                    printf("Pressure: %d hPa\n", (int)pressure/100);
                     char press_buff[15];
-                    sprintf(press_buff, "%d", (int)pressure);
+                    sprintf(press_buff, "P:%d", (int)pressure/100);
                     udp_send(sourceAddr, (unsigned char *)press_buff);
                 }
             } 
